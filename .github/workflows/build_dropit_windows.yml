@@ -1,0 +1,129 @@
+name: Build Dropit Windows Release
+
+on:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: "3.41.9"
+
+jobs:
+  build_windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Enable long paths
+        run: git config --system core.longpaths true
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from pubspec.yaml
+        id: ver
+        shell: pwsh
+        run: |
+          $content = Get-Content app/pubspec.yaml -Raw
+          if ($content -match '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)') {
+            "version=$($Matches[1])" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            "version=1.18.2" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: Setup Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal --target x86_64-pc-windows-msvc
+          rustup default 1.97.1
+          rustc --version
+          cargo --version
+
+      - name: Install Flutter dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build Windows release
+        working-directory: app
+        run: flutter build windows --release
+
+      - name: Copy Visual C++ runtime DLLs
+        shell: pwsh
+        run: |
+          $releaseDir = "app\build\windows\x64\runner\Release"
+          $dlls = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
+          $searchRoots = @(
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC",
+            "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Redist\MSVC",
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Redist\MSVC",
+            "C:\Windows\System32"
+          )
+          foreach ($dll in $dlls) {
+            $found = $null
+            foreach ($root in $searchRoots) {
+              if (Test-Path $root) {
+                $candidate = Get-ChildItem -Path $root -Filter $dll -Recurse -ErrorAction SilentlyContinue |
+                  Where-Object { $_.FullName -match 'x64\\Microsoft\.VC.*CRT|System32' } |
+                  Select-Object -First 1
+                if ($candidate) {
+                  $found = $candidate.FullName
+                  break
+                }
+              }
+            }
+            if ($found) {
+              Copy-Item -Force $found (Join-Path $releaseDir $dll)
+              Write-Host "Copied $dll from $found"
+            } else {
+              Write-Warning "Could not locate $dll"
+            }
+          }
+
+      - name: Prepare portable ZIP
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $portableDir = "${{ runner.temp }}\dropit-portable"
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+          Copy-Item -Path "app\build\windows\x64\runner\Release\*" -Destination $portableDir -Recurse
+          Remove-Item -Force -ErrorAction SilentlyContinue `
+            (Join-Path $portableDir "localsend_msix_helper.msix"), `
+            (Join-Path $portableDir "install_msix_helper.ps1"), `
+            (Join-Path $portableDir "dropit.exe.manifest")
+          Set-Content -Path (Join-Path $portableDir "settings.json") -Value "{}" -NoNewline
+          New-Item -ItemType Directory -Force -Path "dist-out" | Out-Null
+          Compress-Archive -Path "$portableDir\*" -DestinationPath "dist-out\Dropit-$ver-windows-x86-64-portable.zip" -Force
+
+      - name: Build Inno Setup installer
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $innoDir = "${{ runner.temp }}\dropit-inno"
+          New-Item -ItemType Directory -Force -Path $innoDir | Out-Null
+          Copy-Item -Path "app\build\windows\x64\runner\Release\*" -Destination $innoDir -Recurse
+          Copy-Item -Force "app\assets\packaging\logo.ico" (Join-Path $innoDir "logo.ico")
+          $iscc = Get-Command iscc -ErrorAction SilentlyContinue
+          if (-not $iscc) {
+            $defaultPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+            if (Test-Path $defaultPath) {
+              $isccPath = $defaultPath
+            } else {
+              choco install innosetup -y --no-progress
+              $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+            }
+          } else {
+            $isccPath = $iscc.Source
+          }
+          & $isccPath "/DMyAppVersion=$ver" "/DPayloadDir=$innoDir" "/DResultDir=$(Resolve-Path dist-out)" "support\scripts\compile_windows_dropit_inno.iss"
+          Get-ChildItem dist-out
+
+      - name: Upload Windows release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dropit-windows-x64
+          path: dist-out/*
+          if-no-files-found: error

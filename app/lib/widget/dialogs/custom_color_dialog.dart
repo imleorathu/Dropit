@@ -1,0 +1,62 @@
+import 'package:dropit_app/gen/strings.g.dart';
+import 'package:dropit_app/widget/dropit/dropit_alert_dialog.dart';
+import 'package:dropit_app/widget/mornye/app_glass_button.dart';
+import 'package:flex_color_picker/flex_color_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:refena_flutter/addons.dart';
+import 'package:refena_flutter/refena_flutter.dart';
+import 'package:routerino/routerino.dart';
+
+/// Lets the user pick a color visually or enter a HEX code (RRGGBB).
+/// Pops with the selected [Color] or null when cancelled.
+class CustomColorDialog extends StatefulWidget {
+  final Color initialColor;
+
+  const CustomColorDialog({required this.initialColor});
+
+  @override
+  State<CustomColorDialog> createState() => _CustomColorDialogState();
+}
+
+class _CustomColorDialogState extends State<CustomColorDialog> {
+  late Color _color = widget.initialColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropitAlertDialog(
+      title: Text(t.settingsTab.general.colorOptions.custom),
+      content: SingleChildScrollView(
+        child: ColorPicker(
+          color: _color,
+          onColorChanged: (color) => setState(() => _color = color),
+          pickersEnabled: const {
+            ColorPickerType.primary: false,
+            ColorPickerType.accent: false,
+            ColorPickerType.wheel: true,
+          },
+          showColorCode: true, // editable field, so manual HEX input stays possible
+          colorCodeHasColor: true,
+          enableShadesSelection: false,
+          copyPasteBehavior: const ColorPickerCopyPasteBehavior(
+            copyFormat: ColorPickerCopyFormat.hexRRGGBB,
+            parseShortHexCode: true,
+          ),
+        ),
+      ),
+      actions: [
+        AppGlassButton(
+          variant: AppGlassButtonVariant.clear,
+          size: AppGlassButtonSize.sm,
+          label: t.general.cancel,
+          onPressed: () => context.pop(),
+        ),
+        AppGlassButton(
+          variant: AppGlassButtonVariant.filled,
+          size: AppGlassButtonSize.sm,
+          label: t.general.confirm,
+          onPressed: () => context.global.dispatch(NavigateAction.pop(_color)),
+        ),
+      ],
+    );
+  }
+}

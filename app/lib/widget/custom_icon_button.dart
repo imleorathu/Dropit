@@ -1,0 +1,36 @@
+import 'package:dropit_app/util/native/platform_check.dart';
+import 'package:dropit_app/widget/mornye/app_glass_config.dart';
+import 'package:dropit_app/widget/mornye/app_glass_press.dart';
+import 'package:flutter/material.dart';
+
+class CustomIconButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final Widget child;
+
+  const CustomIconButton({
+    required this.onPressed,
+    required this.child,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final config = AppGlassConfigScope.of(context);
+    return AppGlassPress(
+      radius: 999,
+      enabled: onPressed != null && config.animateMotion,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
+          iconSize: 24,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          minimumSize: Size.zero,
+          shape: const CircleBorder(),
+          padding: checkPlatformIsDesktop() ? const EdgeInsets.symmetric(horizontal: 8, vertical: 16) : const EdgeInsets.all(8),
+        ),
+        onPressed: onPressed,
+        child: child,
+      ),
+    );
+  }
+}

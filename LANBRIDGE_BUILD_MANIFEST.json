@@ -1,0 +1,23 @@
+{
+  "brand": "LanBridge",
+  "upstream": "https://github.com/localsend/localsend.git",
+  "upstream_ref": "v1.18.2",
+  "modified_paths": [
+    "app/lib/main.dart",
+    "app/lib/pages/home_page.dart",
+    "app/lib/config/theme.dart",
+    "app/android/app/src/main/AndroidManifest.xml",
+    "app/ios/Runner/Info.plist",
+    "app/macos/Runner/Info.plist",
+    "app/windows/runner/Runner.rc",
+    ".github/workflows/lanbridge-multiplatform.yml",
+    "app/test/lanbridge_connection_help_test.dart",
+    "app/lib/widget/lanbridge_connection_help.dart",
+    "scripts/build.sh",
+    "scripts/build.ps1",
+    "scripts/doctor.py",
+    "LANBRIDGE_CHANGES.md"
+  ],
+  "network_engine": "LocalSend upstream, unchanged",
+  "build_verified": false
+}

@@ -1,0 +1,26 @@
+display_name: Dropit
+packager: Dropit
+buildArch: x86_64
+license: Apache-2.0
+
+icon: assets/img/logo-512.png
+
+requires:
+  - libappindicator
+  - xdg-user-dirs
+
+keywords:
+  - Sharing
+  - LAN
+  - Files
+
+generic_name: An open source cross-platform alternative to AirDrop
+summary: Share files easily with Dropit
+group: Applications/Utilities
+
+categories:
+  - GTK
+  - FileTransfer
+  - Utility
+
+startup_notify: true
